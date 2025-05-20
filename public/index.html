@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>不思議な左半分加工アプリ</title>
+  <style>
+    body {
+      background: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    canvas {
+      border: 1px solid #555;
+      margin-top: 10px;
+      max-width: 90%;
+    }
+    button {
+      margin: 5px;
+      padding: 10px;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>左半分だけ不思議加工</h1>
+  <input type="file" id="upload" accept="image/*"><br>
+  <canvas id="canvas"></canvas><br>
+
+  <button onclick="applyEffect('hue')">🔁 色相シフト</button>
+  <button onclick="applyEffect('mosaic')">🔲 モザイク</button>
+  <button onclick="applyEffect('wave')">🌀 波ゆらぎ</button>
+  <button onclick="applyEffect('glitch')">🧊 グリッチ風</button>
+  <button onclick="applyEffect('mirror')">🪞 ミラー反転</button>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let originalImage = null;
+
+    document.getElementById('upload').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+        originalImage = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      };
+      img.src = URL.createObjectURL(file);
+    });
+
+    function applyEffect(type) {
+      if (!originalImage) return;
+
+      const width = canvas.width;
+      const height = canvas.height;
+      const imageData = new ImageData(new Uint8ClampedArray(originalImage.data), width, height);
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const i = (y * width + x) * 4;
+
+          if (x < width / 2) {
+            if (type === 'hue') {
+              // 色相シフト（単純な回転風）
+              let r = imageData.data[i];
+              let g = imageData.data[i + 1];
+              let b = imageData.data[i + 2];
+              imageData.data[i] = g;
+              imageData.data[i + 1] = b;
+              imageData.data[i + 2] = r;
+            } else if (type === 'mosaic') {
+              // モザイク（4x4ブロック平均）
+              const blockSize = 4;
+              const xBlock = x - (x % blockSize);
+              const yBlock = y - (y % blockSize);
+              let r = 0, g = 0, b = 0, count = 0;
+
+              for (let dy = 0; dy < blockSize; dy++) {
+                for (let dx = 0; dx < blockSize; dx++) {
+                  const bx = xBlock + dx;
+                  const by = yBlock + dy;
+                  if (bx < width / 2 && by < height) {
+                    const bi = (by * width + bx) * 4;
+                    r += originalImage.data[bi];
+                    g += originalImage.data[bi + 1];
+                    b += originalImage.data[bi + 2];
+                    count++;
+                  }
+                }
+              }
+              r = r / count;
+              g = g / count;
+              b = b / count;
+              imageData.data[i] = r;
+              imageData.data[i + 1] = g;
+              imageData.data[i + 2] = b;
+            } else if (type === 'wave') {
+              // 波ゆらぎ（x位置を揺らす）
+              const offset = Math.floor(10 * Math.sin(y / 10));
+              const newX = Math.max(0, Math.min(width / 2 - 1, x + offset));
+              const newI = (y * width + newX) * 4;
+              imageData.data[i] = originalImage.data[newI];
+              imageData.data[i + 1] = originalImage.data[newI + 1];
+              imageData.data[i + 2] = originalImage.data[newI + 2];
+            } else if (type === 'glitch') {
+              // グリッチ風（ランダムノイズ加算）
+              imageData.data[i] = imageData.data[i] ^ (Math.random() * 50);
+              imageData.data[i + 1] = imageData.data[i + 1] ^ (Math.random() * 50);
+              imageData.data[i + 2] = imageData.data[i + 2] ^ (Math.random() * 50);
+            } else if (type === 'mirror') {
+              // ミラー反転（xを反転）
+              const mirrorX = Math.floor(width / 2) - x - 1;
+              const mi = (y * width + mirrorX) * 4;
+              imageData.data[i] = originalImage.data[mi];
+              imageData.data[i + 1] = originalImage.data[mi + 1];
+              imageData.data[i + 2] = originalImage.data[mi + 2];
+            }
+          }
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+    }
+  </script>
+</body>
+</html>
